@@ -27,14 +27,15 @@ _compete () {
 
   export vc_rules_prefix=$prefix
   install -m 664 "$prefix/tasks."* "/tmp/answers-$USER.$ext"
-  local current_time=$(date +%s%N)
+  local elapsed_time=$(timeit)
 
-  vimdiff +"source $dir/rules.vim" -W "/tmp/vc-sol-$USER" \
+  local vimdiff='vimdiff'
+  type nvim &> /dev/null && vimdiff='nvim -d'
+  $vimdiff +"source $dir/rules.vim" -W "/tmp/vc-sol-$USER" \
     "/tmp/answers-$USER.$ext" "$prefix/answers."*
 
   unset vc_rules_prefix
-  elapsed_time=$(( $(date +%s%N) - current_time ))
-  elapsed_time=$(bc -l <<< "$elapsed_time / 1000000000")
+  elapsed_time=$(bc -l <<< "$(timeit) - $elapsed_time" )
 
   cmp -s "/tmp/answers-$USER.$ext" "$prefix/answers."* \
     && print_user_score || print_early_exit
@@ -43,7 +44,7 @@ _compete () {
 
 _stencil () {
   local params short=a:,p: long=rules,author:,problem:
-  local problem=${1##*/} author=$USER create_rules=false
+  local problem=$(mangle_name ${1##*/}) author=$USER create_rules=false
   params=$(getopt -u -o $short -l $long --name "$0" -- "$@")
 
   [[ $? -ne 0 ]] && exit 1
@@ -53,14 +54,15 @@ _stencil () {
   do
     case "$1" in
       -a|--author) author=$2; shift 2 ;;
-      -p|--problem) problem=${2//_/ }; shift 2 ;;
+      -p|--problem) problem=$(mangle_name $2); shift 2 ;;
       -r|--rules) create_rules=true; shift ;;
       --) shift; break ;;
       *) echo "Not implemented option: $1" >&2; exit 1 ;;
     esac
   done
 
-  if [[ -z $1 ]]; then
+  if [[ -z $1 ]]
+  then
     echo Specify a name for a new or existing directory.
     exit 1
   fi
@@ -192,25 +194,41 @@ safecheck () {
 # --------- auxiliary --------- #
 #################################
 
+# NOTE: a bit inaccurate time measurements for macOS
+timeit () {
+  if [[ $(uname) != Darwin ]]
+  then
+    echo $(date +%s.%N)
+  else
+    echo $(date +%s)
+  fi
+}
+
+
+mangle_name () {
+  local name=$1
+  name=${name//-/ }
+  name=${name//_/ }
+  echo $name
+}
+
+
 center_text () {
   local str="$@"
   printf "%*s" $(( ($(tput cols) - ${#str}) / 2 ))
   printf "$str\n"
 }
 
-center_file_contents () {
-# Origin: https://superuser.com/questions/823883
-  while IFS= read -r line; do
-    printf "%*s\n" $(( (${#line} + $(tput cols)) / 2)) "$line"
-  done < "$1"
-}
-
 
 break_clipboard () {
   msg='No clipboard allowed!'
+  [[ $(uname) != Darwin ]] \
+    && clipper='xclip -selection clipboard' \
+    || clipper=pbcopy
+
   while :
   do
-    echo $msg | xclip -selection clipboard
+    echo $msg | $clipper
     sleep .01
   done
 }
