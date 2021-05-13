@@ -152,10 +152,16 @@ print_user_score () {
   printf "%*s" $(( ($(tput cols) - $strlen) / 2 ))
   echo -e "$grats $(tput bold)$score$(tput sgr0)\n"
 
-  center_text 'Verification codes:'
-  center_text "$(md5sum $0)"
-  center_text "$(md5sum $dir/rules.vim)"
-  center_text "$(md5sum $prefix/answers.$ext)"
+  local md5sum='md5sum'
+  [[ $(uname) = Darwin ]] && md5sum='md5'
+
+  if type $md5sum &> /dev/null
+  then
+    center_text 'Verification codes:'
+    center_text "$($md5sum $0)"
+    center_text "$($md5sum $dir/rules.vim)"
+    center_text "$($md5sum $prefix/answers.$ext)"
+  fi
 }
 
 compensate_navigation_keys () {
@@ -220,10 +226,12 @@ center_text () {
 }
 
 
+# `xsel` is substituted for `xclip` because the latter hangs:
+# https://github.com/asweigart/pyperclip/issues/116
 break_clipboard () {
   msg='No clipboard allowed!'
   [[ $(uname) != Darwin ]] \
-    && clipper='xclip -selection clipboard' \
+    && clipper='xsel --clipboard' \
     || clipper=pbcopy
 
   while :

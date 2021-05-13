@@ -1,4 +1,13 @@
-nnoremap do :echo('Cheating is not allowed!')<CR>
+function! DiffToggle ()
+  if &diff
+    diffoff
+  else
+    diffthis
+  endif
+endfunction
+
+
+nnoremap do :call DiffToggle() <bar> :echo("'do' is diff mode toggle now.")<CR>
 nnoremap dp :echo('Cheating is not allowed!')<CR>
 
 " Leave competition if a user opens '*answers.*'
